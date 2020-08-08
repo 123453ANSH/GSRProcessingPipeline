@@ -33,6 +33,13 @@ Finally, this pipeline has the capability of directly comparing the above metric
 
 All the above metrics are reported in another processed file separate from the processed file for the metrics above the divider (------------). This processed file reads the processed file for the metrics above the divider, and calculates its metrics from the metrics in this file.
 
-
-
 How to use the pipeline: 
+
+Note - ensure you have python 3.7 or greater installed in your text editor/IDE with the following packages: os, math, and csv.
+
+1) Download the .py file and open in appropriate text editor/IDE. Program was created in pyCharm and Jupyter Notebooks; running the script in either of these IDE's would allow for the least errors while setting up.
+2) in the preprocessing function, edit the 'Folder' and 'NewFilePath' variables to the directory of the folder with the GSR files on your computer. 
+3) ensure the GSR files are of type .txt; if they are of any other type, convert them to type .txt before using this script
+4) in the compareoddball function, change 'Folder1' variable to the directory where processed GSR data is stored (should be same as the 'NewFilePath' variable in the preprocessing function), and change the 'Foldersave' variable to the Folder which will save the data produced with this function. 
+5) Run the preprocessing function to process all the raw GSR data to the statistics denoted above the divider (-------); processed data for every file will be stored in a new file at the directory you specified through the 'NewFilePath' variable
+6) Run the compareoddball function to generate statistics comparing the stimuli peaks between pre and post files for the same participant (statistics denoted below the divider); processed data for to compare pre and post files will be stored in a new file at the directory you specified through the 'Foldersave' variable
