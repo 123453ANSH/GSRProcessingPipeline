@@ -1,711 +1,765 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Aug 27 19:13:04 2019
 
-@author: Ansh Verma
-"""
-# Author & Property of Ansh Verma
+import os
+import math
+import csv
+
+import matplotlib
+# %matplotlib qt ---- import this function for interactivity
+# %matplotlib widget or notebook ----  import this funciton for interactivity - better quality but must only review one graph at a time
+import numpy as np
+from scipy.signal import butter, filtfilt
+import matplotlib.pyplot as plt
+
+def split(word):
+    """
+    splits string into list of individual characters
+    """
+    return [char for char in word]
+
+
+def gatheringfiles(file):
+    """this function does the following:
+    1) creates a list of files and participant ID's (list of characters in a string)
+    """
+    if (file == ".DS_Store"):
+        return ""
+
+    c2 = 0
+    ID = split(file)
+    counter = 0
+    c3 = 0
+
+    # below while loop finds the participant ID within filename
+    while (c2 < len(ID) - 1):
+        try:
+            while (0 <= int(ID[c2 + 1]) < 10 and 0 <= int(ID[c2]) < 10 and c2 > 7):
+                counter += 1
+                if ((counter == 2 or counter == 3) and (
+                        ID[c2 + 2] == '_' or ID[c2 + 2] == '.')):  # and not(int(ID[c2 + 2]))
+                    c3 = c2 + 1
+                    c2 == len(ID)
+                c2 += 1
+            c2 += 1
+        except ValueError:
+            c2 += 1
+            continue
+
+    # returns list of filename and participant ID, which is appended to overall list in another function
+    return [file, ID[(c3 - counter):(c3 + 1)]]
+
+
+def organizingfiles(filestoeval, Folder):
+    """this function does the following:
+    2) converts each participant ID's into an integer, appends to the end of each sublist with file names
+    3) creates a separate list of sorted participant ID's in increasing order
+    4) sorts the list of filenames and participant ID's in increasing orders
+    5) all filenames with the same participant ID, puts them in a sublist within overall list
+
+    Note - script does NOT check for repeats because decision for which file to use must be done by human - however, do add a repeat checker
+    """
+    interlist = []
+
+    # below loop converts participant ID list to an integer and appends to the end of sublist where participant ID list used to be
+    # also appends integer to a new list, which will be a sorted list of participant ID numbers
+    for x in range(0, len(filestoeval)):
+        string1 = ""
+        for g in range(0, len(filestoeval[x][-1])):
+            string1 += filestoeval[x][-1][g]
+        filestoeval[x][-1] = int(string1)
+        interlist.append(int(string1))
+    interlist2 = sorted(interlist)
+
+    filestoeval1 = []
+
+    # makes a new list filestoeval1, which is a sorted version of filestoeval; sorted based on participant ID numbers
+
+    for d in range(0, len(interlist2)):  # works
+        x = 0
+        while (interlist2[d] != filestoeval[x][-1]):
+            x += 1
+        tempvar9 = filestoeval.pop(x)
+        filestoeval1.append(tempvar9)
+
+    filestoeval2 = []
+    iterator = 0
+
+    # appends all the filenames with same ID in a sublist within overall list
+    while (iterator < len(filestoeval1)):
+        filestoeval3 = []
+        giter = 1
+        try:
+            while (filestoeval1[iterator + giter][-1] == filestoeval1[iterator][-1]):
+                giter += 1
+        except IndexError:
+            ansh = 0
+        for q in range(iterator, iterator + giter):
+            filestoeval3.append(filestoeval1[q][0])
+        iterator = iterator + giter
+        filestoeval2.append(filestoeval3)
+
+    checklist = interlist2
+    # below gets rid of any repeat participant ID numbers
+    interlist2 = set(interlist2)
+    interlist2 = list(interlist2)
+    interlist2 = sorted(interlist2)
+
+    if (Folder == r'/Users/anshverma/Documents/UCSF Neuroscape Work /UCSF Data Analysis Files/Meditrain 2020 Summer study/MTOA_Files/MIST'):
+        for x in range(len(filestoeval2)):
+            filestoeval2[x].insert(0, interlist2[x])
+            filestoeval2[x].insert(0, "MT")
+    else:
+        for x in range(len(filestoeval2)):
+            filestoeval2[x].insert(0, interlist2[x])
+            filestoeval2[x].insert(0, "Baseline")
+    return filestoeval2
+
+
+
+def addFileToList(list3, x, filename, designation, ID):
+    """
+    if multiple files for same participant and trial, selects the correct file to use
+    """
+    replacedict = {'Baseline2714': "Dump055_MTOA_2714_POST.txt", 'MT2714': "Dump118_MTOA2714_POST.txt",
+                   'Baseline2790': "Dump128_MTOA2790_POST.txt", 'MT2790': "Dump129_MTOA_2790_POST.txt",
+                   'Baseline2971': "Dump107_MTOA2971_PRE.txt", 'MT2971': "Dump108_MTOA2971_PRE.txt",
+                   'MT3005': "Dump094_MTOA3005_POST.txt", 'MT3152': "Dump106_MTOA3152_POST.txt",
+                   'MT3177': "Dump001_MTOA3177_POST_3.txt", 'Baseline3400': "Dump082_MTOA3400_PRE.txt",
+                   'MT3450': "Dump004_MTOA3450_POST.txt", 'MT3457': "Dump005_MTOA3457_POST.txt",
+                   'MT3635': "Dump003_MTOA3635_PRE.txt",
+                   'MT3661': "Dump033_MTOA3661_PRE.txt", 'MT4263': "Dump003_MTOA4263_POST.txt"
+                   } #dict containing all the correct files to use
+    bool1 = True
+    while (bool1):
+        if (list3[x] == ""):
+            list3[x] = filename
+            bool1 = False
+        elif (type(list3[x]) == str):
+            try: #replacing current file with correct file to analyze
+                identifier = designation + str(ID)
+                list3[x] = replacedict[identifier]
+                bool1 = False
+            except KeyError: #if correct file does not exist in dictionary, add to dictionary and
+            #try to replace current file with this correct file
+                print("this is the designation, ID, and filename")
+                print(designation, ID, filename)
+                input1 = input("input the designation and ID to make a dictionary key")
+                input2 = input("input the filename to make a dictionary value")
+                replacedict[input1] = input2
+    return list3
+
+
+def intoPrintFormat(filename, list3, designation, ID):
+    """
+    Given type of file (pre, post, or fu), and designation (MT or Baseline), adds file to correct index in a sublist
+    within a bigger list that is used to process raw GSR data in the correct order, so that it is saved in the correct
+    format
+    """
+
+    counter = 0
+    c2 = 7
+    c3 = 0
+    tempfilename = split(filename)
+    while (7 <= c2 < len(tempfilename)):
+        L = False
+        G = False
+        Q = False
+        if (tempfilename[c2] == "P" or tempfilename[c2] == "p"):
+            if (tempfilename[c2 + 1:c2 + 3] == ["r", "e"] or tempfilename[c2 + 1:c2 + 3] == ["R", "E"]):
+                L = True
+            elif (tempfilename[c2 + 1:c2 + 4] == ["O", "S", "T"] or tempfilename[c2 + 1:c2 + 4] == ["o", "s", "t"]):
+                G = True
+            else:
+                L = False
+                G = False
+
+        elif (tempfilename[c2] == "F" or tempfilename[c2] == "f"):
+            Q = True
+            if (tempfilename[c2 + 1:c2 + 2] == ["U"] or tempfilename[c2 + 1:c2 + 2] == ["u"]):
+                ansh = 0
+            elif (tempfilename[c2 + 1:c2 + 8] == ["O", "L", "L", "O", "W", "U", "P"] or tempfilename[c2 + 1:c2 + 8] == [
+                "o", "l", "l", "o", "w", "u", "p"]):
+                ansh = 1
+            else:
+                Q = False
+        if (designation == "MT"):
+            if (L):
+                list3 = addFileToList(list3, 4, filename, designation, ID)
+                break
+            elif (G):
+                list3 = addFileToList(list3, 5, filename, designation, ID)
+                break
+            elif (Q):
+                list3 = addFileToList(list3, 6, filename, designation, ID)
+                break
+        else:
+            if (L):
+                list3 = addFileToList(list3, 1, filename, designation, ID)
+                break
+            elif (G):
+                list3 = addFileToList(list3, 2, filename, designation, ID)
+                break
+            elif (Q):
+                list3 = addFileToList(list3, 3, filename, designation, ID)
+                break
+        c2 += 1
+    return list3
+
+def savingVals(toggle, listval, Folder, Folder1, retval, ampfilter, noisefilter):
+    """
+    function that gets processed value from raw iMotions file
+    """
+    if (listval != ""):
+        print(listval)
+        listval = temppeakdetectionpreprocessing(str(listval), Folder, Folder1, toggle, retval, ampfilter, noisefilter)
+    else:
+        listval = ""
+    return listval
+
+
+def temppeakdetectionpreprocessing(file, Folder, Folder1, toggle, retval, amplitudethreshold, signaljump):
+    """
+    function that processes raw GSR data to return any of the following processed metrics:
+    -
+    """
+    def peakdetection(PhasicGSRVals, addFilters):
+        """
+        Function that detects peaks and saves the following metrics for peaks:
+        - Peak onset value and timestamp
+        - Peak offset value and timestamp
+        - maximum value of peak and timestamp
+        - whether peak was evoked by a stimulus marker or not
+        :param PhasicGSRVals: List containing Phasic GSR Values
+        :param addFilters: bool which decides whether amplitude and artifact filters are implemented when deciding
+        what is a peak
+        :return: dictionary with all peaks and their metrics, and the addition of all peak amplitudes
+        """
+
+        PeakSets = []
+        PeakMax = 0
+        l = 0
+        peakOnsetExists = 0
+        NumberPeaks = 0
+
+        while l < len(PhasicGSRVals):
+
+            c = False
+
+            if (PhasicGSRVals[l] > 0.01):
+                c = True
+                peakOnsetExists += 1
+            else:
+                l += 1
+
+            if (c):
+
+                d = 0
+                minNum = math.pow(10, -10)
+                minNum = 5.0 * minNum
+
+                try:
+                    while (PhasicGSRVals[
+                               d + l] > minNum):  # have to experiment w/minNum value to make sure not skipping over peaks/combining multiple peaks into one
+                        d += 1
+                except IndexError:
+                    l = l + d
+                    print("tried to make peak, couldn't reach end value before went through all Phasic GSR Values")
+                    continue
+
+                inc = 0
+                sub = l
+                while (l + inc < l + d):
+                    if (PhasicGSRVals[l + inc] > PhasicGSRVals[sub]):
+                        sub = l + inc
+                    inc += 1
+
+                PeakAmplitude = float(GSRval[Phasicindexs[sub]]) - float(GSRval[Phasicindexs[l]])
+
+                if (addFilters):
+                    startBool = False
+                    i = 0
+                    while (l + i < l + d):
+                        if (i > 0 and abs(PhasicGSRVals[l + i] - PhasicGSRVals[l + i - 1]) > signaljump):
+                            artifactdetect = abs(PhasicGSRVals[l + i] - PhasicGSRVals[l + i - 1])
+                            # print("there was an artifact of " + str(artifactdetect) + " between two consecutive Phasic GSR data points")
+                            # print(str(PhasicGSRVals[l + inc - 1]) + "and " + str(PhasicGSRVals[l + inc] + " are the data points."))
+                            startBool = True
+                            break
+                        i += 1
+                    if (startBool):
+                        # print("no more peak because artifact present in peak")
+                        l = l + d
+                        continue
+                    if (PeakAmplitude >= amplitudethreshold):
+                        pass
+                    else:
+                        # print("'Peak' amplitude is " + str(PeakAmplitude) + ", too low")
+                        #print("Therefore, not counting this 'peak' as a peak")
+                        l = l + d
+                        continue
+
+                NumberPeaks += 1  # counts number of peaks
+
+                Peak = {}.fromkeys(
+                    ["Peak Onset", "Peak Offset/MinVal", "PeakMax", "TimeStamp Onset", "TimeStamp Offset",
+                     "TimeStamp Max", "Stim Peak"], 0);
+
+                Peak["Peak Onset"] = [PhasicGSRVals[l], float(GSRval[Phasicindexs[l]])]
+                Peak["Peak Offset/MinVal"] = [PhasicGSRVals[l + d], float(GSRval[Phasicindexs[l + d]])]
+                Peak["PeakMax"] = PeakAmplitude
+                PeakMax += PeakAmplitude
+                Peak["TimeStamp Onset"] = TimeStamp1[l]
+                Peak["TimeStamp Offset"] = TimeStamp1[l + d]
+                Peak["TimeStamp Max"] = TimeStamp1[sub]
+                Peak["Stim Peak"] = False
+                PeakSets.append(Peak)
+
+                if (d > 0):
+                    l = l + d
+                else:
+                    l += 1
+
+        # to check # of peaks and peak metrics
+        # print(len(PeakSets))
+        # for i in range(30,40):
+        # print(PeakSets[i])
+
+        return PeakSets, PeakMax
+
+    def peaksperbin(PeakSets):
+        temp = 4.0  # timestamp in seconds for when Phasic GSR Values start to exist
+        #because of common practice, do not include data for first and last four seconds of trial in analysis
+        dict2 = {}
+        update = 0
+        und = 0
+        u = 0
+        while (u < len(PeakSets)):
+            count = 0
+            update = u
+
+            while ((update < len(PeakSets)) and PeakSets[update]["TimeStamp Onset"] / 1000 < temp + 2.0):
+                count += 1
+                update += 1
+
+            if (update > u):
+                u = update
+                und += 1  # counts # of new peaks created
+
+            dict2.update({temp: [count, temp, temp + 2.0, PeakSets[update - 1]["TimeStamp Onset"] / 1000]})
+            temp += 2.0
+
+        return dict2
+
+
+
+    def butter_lowpass_filter(data, order):
+        """
+        function that implements low pass filter on unfiltered Phasic GSR values
+        """
+        b, a = butter(order, 0.5, btype='low', analog=False)  # 0.5 is a commonly accepted Hz filter value
+
+        y = filtfilt(b, a, data)
+        return y
+
+    def meanfilter(g, GSRval):
+        """ function that calculates Phasic GSR data from raw Phasic GSR data using the mean filter"""
+        GSRMean = 0
+        for val in g:
+            GSRMean += val
+        GSRMean = GSRMean / (len(g))
+
+        return float(GSRval[x]) - GSRMean
+
+    def medianfilter(g, GSRval):
+        """ function that calculates Phasic GSR data from raw Phasic GSR data using the median filter"""
+        if (type(len(g) / 2) == int):
+            c = g[len(g) / 2]
+        else:
+            try:
+                val_1 = int(len(g) / 2)
+                val_2 = val_1 + 1
+                c = (g[val_1] + g[val_2]) / 2
+            except IndexError:
+                if (len(g) == 1):
+                    c = g[0]
+                elif (len(g) == 2):
+                    c = (g[0] + g[1]) / 2
+
+        return float(GSRval[x]) - c
+
+    # lists that will be used to iterate through data in file
+    EventName = []
+    TimeStamp = []
+    MediaTime = []
+    LiveMarker = []
+    MarkerText = []
+    GSRval = []
+    filename = file + "peakDetectionGSRData.csv"
+    PhasicGsrAvgVal = []
+
+    # variables to check edge cases in program
+    a = False
+    v = 0
+    count = 0
+    error_GSRVals_UI_difftimestamp = 0
+    error_GSR_UI_sametimestamp = 0
+    error_GSR = 0
+    error_GSR_time = 0
+    error_GSR_both = 0
+
+    # opening file
+    if (toggle == 1):
+        openfile = open(Folder + "/" + file, "r")
+    else:
+        openfile = open(Folder1 + "/" + file, "r")
+    print(openfile) # see file directory
+
+    dd = 0
+    cc = 0
+    ee = 0
+    ff = 0
+    gg = 0
+    ll = 0
+    mm = 0
+    nnnn = 0
+    bool5 = False
+    bool6 = True
+    for line in openfile:  # loop through each line in the file
+        row = line.split("\t")  # sep each line by tabs, make into a list can iterate through now
+
+        # finding index's of data collumns
+        while v <= 46 and len(row) > 20:
+            if (bool(row[v] == 'EventSource') == True):
+                h = v
+                print(h, 'EventSource')
+                v += 1
+            elif (bool(row[v] == 'Timestamp') == True):
+                j = v
+                print(j, 'Timestamp')
+                v += 1
+            elif (bool(row[v] == 'MediaTime') == True):
+                q = v
+                print(q, 'MediaTime')
+                v += 1
+            elif (bool(row[v] == 'StimulusName') == True):
+                nnnn = v
+                print(nnnn, 'StimulusName')
+                v += 1
+            elif (bool(row[v] == 'GSR CAL (µSiemens)(Shimmer)') == True or bool(row[v] == 'GSR CAL (µSiemens)(Shimmer Sensor)') == True or bool(row[v] == 'GSR CAL (µSiemens) (Shimmer)') == True or bool(row[v] == 'GSR CAL (µSiemens) (Shimmer Sensor)') == True):  # or
+                print(v, "GSR")
+                d = v
+                v += 1
+            elif (bool(row[v] == 'LiveMarker') == True):
+                z = v
+                print(z, 'LiveMarker')
+                v += 1
+            elif (bool(row[v] == 'MarkerText') == True):
+                t = v
+                print(t, 'MarkerText')
+                v = 47
+                a = True
+            else:
+                v += 1
+        countReal = count - 1
+
+        # iterates through file and appends relevant data to lists to be used later
+        if (a and ("Shimmer Shimmer" in row[h])):
+            dd += 1
+
+            if (count == 0):
+                ee += 1
+                GSRval.append(row[d])
+                EventName.append(row[h])
+                TimeStamp.append(row[j])
+                MediaTime.append(row[q])  # only for if gsr before media starts - would use this metric to see this
+                MarkerText.append(row[t])
+                LiveMarker.append(row[z])
+                count += 1
+            elif (row[j] != TimeStamp[count - 1] and row[d] == GSRval[count - 1]):  # if this is a new timestamp
+                # if this happens, have two same GSR val recorded w/a small timestamp diff
+                error_GSR += 1
+                mm += 1
+                GSRval.append(row[d])
+                EventName.append(row[h])
+                TimeStamp.append(row[j])
+                MediaTime.append(row[q])  # only for if gsr before media starts - would use this metric to see this
+                MarkerText.append(row[t])
+                LiveMarker.append(row[z])
+                count += 1
+            elif (row[d] == GSRval[count - 1] and row[j] == TimeStamp[count - 1]):  # if timestamp and gsrval are same, override last input
+                error_GSR_both += 1
+                EventName[countReal] = row[h]  # will override GSR eventname
+                MediaTime[countReal] = row[q]  # should be the same
+                MarkerText[countReal] = row[t]  # this and below line are new, with marker now
+                LiveMarker[countReal] = row[z]
+            elif (row[d] != GSRval[count - 1] and row[j] == TimeStamp[count - 1]):  # will rarely happen
+                # if happens, choose Marker GSR Val over reg GSR val
+                error_GSR_time += 1
+                GSRval[countReal] = row[d]
+                EventName[countReal] = row[h]
+                EventName[countReal] = row[h]  # will override GSR eventname
+                MediaTime[countReal] = row[q]  # should be the same
+                MarkerText[countReal] = row[t]
+                LiveMarker[countReal] = row[z]
+            else:
+                cc += 1
+                GSRval.append(row[d])
+                EventName.append(row[h])
+                TimeStamp.append(row[j])
+                MediaTime.append(row[q])
+                MarkerText.append(row[t])
+                LiveMarker.append(row[z])
+                count += 1
+
+    PhasicGSRVals = []
+    Phasicindexs = []
+    TimeStamp1 = []
+    NumberPeaks = 0
+    bool_2 = False
+
+    for x in range(0, len(TimeStamp)):
+
+        if (float(TimeStamp[x]) >= 4000):  # no GSR vals used from first 4 sec of trial, common practice
+            bool_2 = True
+        if ((bool_2) and (float(TimeStamp[x]) <= float(
+                TimeStamp[-1]) - 4000)):  # no GSR vals used from last 4 sec of trial, common practice
+            a = x
+            q = x
+            g = []
+            c = 0
+            g.append(float(GSRval[x]))
+            try:
+                while (a - 1 > 0 and float(TimeStamp[a - 1]) > float(TimeStamp[x]) - 4000):  # (a-1) < len(TimeStamp)
+                    a = a - 1
+                    g.insert(0, float(GSRval[a]))
+            except IndexError:
+                print(a)
+            while (float(TimeStamp[q + 1]) < float(TimeStamp[x]) + 4000 and (q - 1) < len(TimeStamp)):
+                q = q + 1
+                g.insert(-1, float(GSRval[q]))
+
+            PhasicGSRVals.append(meanfilter(g, GSRval))
+
+            TimeStamp1.append(int(TimeStamp[x]))  # so have corresponding timestamps to full GSR list
+            Phasicindexs.append(int(x))  # corresponding indexs to full GSR list
+
+    """ for visualization of Phasic GSR data and debugging
+    
+    plt.plot(TimeStamp1[40:670], PhasicGSRVals[40:670])
+    plt.xlabel("time")
+    plt.ylabel("GSR values")
+    plt.title("GSR graph for file")
+    plt.show()
+    """
+
+    """ for visualization of Phasic GSR data and debugging
+    
+    plt.plot(TimeStamp1[1000:2000], PhasicGSRVals[1000:2000])
+    plt.xlabel("time")
+    plt.ylabel("Phasic GSR values")
+    plt.title("Phasic GSR graph for file")
+    plt.show()
+    plt.plot(TimeStamp1[0:len(TimeStamp1) - 1], PhasicGSRVals[0:len(PhasicGSRVals) - 1])
+    plt.xlabel("time")
+    plt.ylabel("Phasic GSR values")
+    plt.title("Phasic GSR graph for file")
+    plt.show()
+    """
+
+    """ for visualization of Phasic GSR data and debugging
+    
+    plt.plot(TimeStamp1[1000:2000], PhasicGSRVals1[1000:2000])
+    plt.xlabel("time")
+    plt.ylabel("Phasic GSR values")
+    plt.title("Phasic GSR graph for file")
+    plt.show()
+    plt.plot(TimeStamp1[0:len(TimeStamp1) - 1], PhasicGSRVals1[0:len(PhasicGSRVals1) - 1])
+    plt.xlabel("time")
+    plt.ylabel("Phasic GSR values")
+    plt.title("Phasic GSR graph for file")
+    plt.show()
+    """
+
+    """
+    plt.plot(TimeStamp1[40:100], PhasicGSRVals[40:100])
+    plt.xlabel("time")
+    plt.ylabel("GSR values")
+    plt.title("GSR graph for file")
+    plt.show()
+    """
+
+    """ To see peak metrics from unfiltered Phasic GSR data for debugging and for sanity check of data
+    
+    PeakSets, PeakMax = peakdetection(PhasicGSRVals, False)
+    print("Number of peaks with no filters implemented is " + str(len(PeakSets)))
+    dict3 = peaksperbin(PeakSets)
+    print("Number of peaks in every 20 second interval with no filters implemented is " + str(list(dict3.values())))
+    """
+
+    """ To see peak metrics from filtered Phasic GSR data (filtered using artifact and peak amplitude thresholds) for debugging and for sanity check of data
+     
+    PeakSets, PeakMax = peakdetection(PhasicGSRVals, True)
+    print("Number of peaks after peak amplitude and signal jump filters were implemented is " + str(len(PeakSets)))
+    dict3 = peaksperbin(PeakSets)
+    print("Number of peaks in every 20 second interval after peak amplitude and signal jump filters were implemented is " + str(list(dict3.values())))
+    """
+
+    # below detects GSR Peaks
+    PeakSets, PeakMax = peakdetection(PhasicGSRVals, True)
+
+
+    filtered_PhasicGSRVals = butter_lowpass_filter(PhasicGSRVals , 2)
+
+    """ for visualization of Filtered Phasic GSR data and debugging
+    
+    plt.plot(TimeStamp1[1000:2000], filtered_PhasicGSRVals[1000:2000])
+    plt.xlabel("Time")
+    plt.ylabel("Filtered Phasic GSR values")
+    plt.title("Filtered Phasic GSR Graph")
+    plt.show()
+    plt.plot(TimeStamp1[0:len(TimeStamp1) - 1], filtered_PhasicGSRVals[0:len(PhasicGSRVals) - 1])
+    plt.xlabel("time")
+    plt.ylabel("Phasic GSR values")
+    plt.title("Phasic GSR graph for file")
+    plt.show()
+    """
+
+    FilteredPeakSets, NewPeakMax = peakdetection(filtered_PhasicGSRVals, True)
+    dict4 = peaksperbin(FilteredPeakSets)
+    templist = list(dict4.keys())
+
+    # print(len(dict4, sorted(templist)[-1]))
+    """ To see peak metrics from Filtered Phasic GSR data (filtered using low-pass filter and artifact and peak amplitude thresholds) for debugging and for sanity check of data
+    print("Number of peaks after low pass filter implemented is " + str(len(FilteredPeakSets)))
+    print("Number of peaks in every 20 second interval after filter is implemented is " + str(list(dict4.values())))
+    NewPeakMax = NewPeakMax/len(filtered_PhasicGSRVals)
+    print("FilteredPeakMax", NewPeakMax)
+    """
+
+    AvgGSRVal = 0
+
+
+    for val in filtered_PhasicGSRVals:
+        AvgGSRVal += val  # every 20 seconds
+
+    NumberOfPeaks = len(FilteredPeakSets)
+
+    try: # feature is to return avg phasic GSR val
+        AvgGSRVal = AvgGSRVal / len(filtered_PhasicGSRVals)
+    except ZeroDivisionError:
+        print("something is wrong, there are no filtered Phasic Values. We are continuing analysis without the values")
+        AvgGSRVal = 0
+
+    try:
+        NewPeakMax = NewPeakMax / len(FilteredPeakSets)
+    except ZeroDivisionError:
+        print("something is wrong, there are no filtered Phasic Peaks. We are continuing analysis without the peaks")
+        NewPeakMax = 0
+
+    if (retval == 0):
+        return NumberOfPeaks
+    elif (retval == 1):
+        return NewPeakMax
+    else:
+        return dict4[30000][0]
 
 def preprocessing():
 
-    
     import os
-
- 
-    #this script is made for toyota study file format - files made and downloaded with imotions, so should be imotions format 
-   
-
-    Folder= r'C:\Users\Ansh Verma\Documents\Toyota_EEG_Data_Real' #folder path with data 
-
-    NewFilePath=r'C:\Users\Ansh Verma\Documents\GSRFinal' #where want to store processed GSR data
-    
-    for root, dirs, filenames in os.walk(Folder):
-
-        for file in filenames:
-            doingmetrics(file, Folder, NewFilePath)
-            
-            
-
-def doingpreprocessing(file, Folder, NewFilePath): 
-    
-    
-        import os
-        import math
-        import csv
-        
-        
-        print(file)
-        EventName = []
-        TimeStamp = []
-        MediaTime = []
-        LiveMarker = []
-        MarkerText = []
-        GSRval = []
-        filename = file + "processedGSRData.csv"
-     
-        a = False
-        v = 0 
-        count = 0
-        error_GSRVals_UI_difftimestamp = 0
-        error_GSR_UI_sametimestamp = 0
-        error_GSR = 0
-        error_GSR_time = 0
-        error_GSR_both = 0
-        openfile=open(Folder+"\\"+file,"r") 
-        #d = 0
-            #GSRdata = []  -A - use of being here
-        
-        for line in openfile: #loop through each line in the file
-            row=line.split("\t") #sep row/line by tabs, make into a list can iterate through now
-            while v <=46 and len(row)>20:
-                if(bool(row[v] == 'EventSource') == True): 
-                    h = v 
-                       # print(h)
-                    v+=1
-                elif(bool(row[v] == 'Timestamp') == True): 
-                    j = v 
-                      #  print(j)
-                    v+=1
-                elif(bool(row[v] == 'MediaTime') == True): 
-                    q = v
-                       # print(q)
-                    v+=1
-                elif(bool(row[v] == 'Gsr') == True):
-                      #  print(v)
-                    d = v 
-                    v+=1
-                elif(bool(row[v] == 'LiveMarker') == True):
-                    z = v
-                       # print(z)
-                    v+=1
-                elif(bool(row[v] == 'MarkerText') == True): 
-                    t = v
-                      #  print(t)
-                    v= 47
-                    a = True
-                else:
-                    v+=1
-            countReal = count - 1
-            if a : 
-                try:
-                    if('GSR' in row[h]): # no sense as to how this goes to "list index out of range"
-                            
-                            
-                            # below logic - count will always be 1 greater than index of any of lists in this if statement
-                            #comparing new timestamp to previous timestamp, same with GSR
-                            #the below if block is to check various "error situations," that the frequency of should be noted
-                            
-                            
-                        if (count >1 and row[j] == TimeStamp[count - 1] and row[d] == GSRval[count - 1]):
-                            error_GSR_both += 1 
-                        elif (count >1 and row[j] == TimeStamp[count - 1]):
-                            error_GSR_time += 1 
-                        elif(count >=1 and row[d] == GSRval[count - 1]):
-                            error_GSR += 1
-                        GSRval.append(row[d])
-                        EventName.append(row[h])
-                        TimeStamp.append(row[j])
-                        MediaTime.append(row[q]) 
-                        MarkerText.append(row[t])
-                        LiveMarker.append(row[z])
-                        count += 1
-                    elif('UI' in row[h]): #anything line in file that has a marker response 
-                        try:
-                           
-                            if( row[j] != TimeStamp[count -1]): #if this is a new timestamp
-                                if(count> 1 and  row[d] == GSRval[count - 1]): # if this happens, have two same GSR val recorded w/a small timestamp diff
-                                    error_GSRVals_UI_difftimestamp += 1
-                                GSRval.append(row[d])
-                                EventName.append(row[h])
-                                TimeStamp.append(row[j])
-                                MediaTime.append(row[q])  #only for if gsr before media starts - would use this metric to see this 
-                                MarkerText.append(row[t])
-                                LiveMarker.append(row[z])
-                                count += 1
-                            elif( row[d] == GSRval[count-1] and row[j] == TimeStamp[count-1]): #if timestamp and gsrval are same, override last input
-                                EventName[countReal] = row[h] #will override GSR eventname
-                                MediaTime[countReal] = row[q]  #should be the same 
-                                MarkerText[countReal] =row[t] #this and below line are new, with marker now 
-                                LiveMarker[countReal] = row[z]
-                                count += 1
-                            elif( row[d] != GSRval[count-1] and row[j] == TimeStamp[count-1]): #will rarely happen
-                                #if happens, choose Marker GSR Val over reg GSR val
-                                error_GSR_UI_sametimestamp += 1
-                                GSRval[countReal] = row[d]
-                                EventName[countReal] = row[h]
-                                EventName[countReal] = row[h] #will override GSR eventname
-                                MediaTime[countReal] = row[q]  #should be the same 
-                                MarkerText[countReal] =row[t]
-                                LiveMarker[countReal] = row[z]
-                                count += 1
-                        except IndexError:
-                            try:
-                                if(count == 0):
-                                    GSRval.append(row[d])
-                                    EventName.append(row[h])
-                                    TimeStamp.append(row[j])
-                                    MediaTime.append(row[q])  #only for if gsr before media starts - would use this metric to see this 
-                                    MarkerText.append(row[t])
-                                    LiveMarker.append(row[z])
-                                else:# A- doesn't happen, which simply means count is = 0!
-                                    print(count)
-                                    print("this should not be running....unexpected index error!")
-                            except UnboundLocalError:
-                                print("this file doesn't have a gsr column!")
-                                return
-                except IndexError:
-                    print(h)
-                    print(len(row)) # 7,7,5,4 - how is it this few elements? - last rows?? continues for 7-8 - then restarts
-                        # w/000000 phasic gsr val, since only one file saved..assume sporadically in file?
-        
-            #below is there to guage whether file has a relative, or higher number of abnormalities in GSR data than normal
-            #get rid of # for the below line to print when you run this script
-            #print( error_GSR,error_GSR_time, error_GSR_both, error_GSRVals_UI_difftimestamp,error_GSR_UI_sametimestamp) 
-            #ex - from 002_805_no_oddball_set1 text file(in order)- 944 1144 179 302 0   
-        
-        
-        
-        
-            #calculates median of current GSR value with all gsr values +/-4 seconds around it, subtracts this from the current GSR value 
-
-        PhasicGSRVals = [] 
-        Phasicindexs = []
-        TimeStamp1 = []
-        NumberPeaks = 0
-        bool_2 = False
-        for x in range(0,len(TimeStamp)):
-        
-            if(float(TimeStamp[x]) >= 4000) : # no GSR vals used from first 4 sec of trial, common practice 
-                bool_2 = True
-            if((bool_2) and (float(TimeStamp[x]) <= float(TimeStamp[-1]) - 4000)): # no GSR vals used from last 4 sec of trial, common practice 
-                a = x
-                q = x
-                g = []
-                c = 0
-                g.append(float(GSRval[x]))
-                try: 
-                    while(a -1 > 0 and float(TimeStamp[a -1]) > float(TimeStamp[x]) - 4000): # (a-1) < len(TimeStamp) 
-                        a = a -1
-                        g.insert(0,float(GSRval[a]))
-                except IndexError: 
-                    print(a)                    
-                while(float(TimeStamp[q + 1]) < float(TimeStamp[x]) + 4000 and (q-1) < len(TimeStamp)):
-                    q = q + 1
-                    g.insert(-1,float(GSRval[q]))
-                if(type(len(g)/2) == int):
-                    c = g[len(g)/2]
-                else:
-                    try: 
-                        val_1 = int(len(g)/2)
-                        val_2 = val_1 + 1
-                        c = (g[val_1] + g[val_2])/2
-                    except IndexError: 
-                        if(len(g) == 1): 
-                            c = g[0]
-                        elif (len(g) ==2): 
-                            c = (g[0] + g[1])/2
-                           
-                PhasicGSRVals.append(float(GSRval[x]) - c) 
-                    
-                   
-                    
-                TimeStamp1.append(int(TimeStamp[x])) #so have corresponding timestamps to full GSR list
-                Phasicindexs.append(int(x)) #corresponding indexs to full GSR list
-                
-                
-            # below detects GSR Peaks - all, not just peaks corresponding to stimulus 
-        val58 = 0 # to use to see if any peaks actually created or no later
-        PeakSets =[] 
-        AvgGSRVal = 0
-        for l in range(0,len(PhasicGSRVals)):
-            
-            AvgGSRVal += PhasicGSRVals[l]
-            c = False
-            if (PhasicGSRVals[l] > 0.01): 
-                c = True
-                val58 +=1
-            if(c):
-                NumberPeaks += 1 #counts number of peaks 
-                d = 0
-        
-                minNum = math.pow(10,-10)
-                minNum = 5.0*minNum
-                
-                while(PhasicGSRVals[d + l] > minNum ): #will have to experiment w/minNum value to make sure not skipping over peaks/combining multiple peaks into one 
-                      
-                    d += 1
-                inc = 0
-                sub = l 
-                while(PhasicGSRVals[l + inc] != PhasicGSRVals[l + d]): # PhasicGSRVals[l + d] is the lowest val in the peak  
-                    if(PhasicGSRVals[l + inc] > PhasicGSRVals[sub]): 
-                        sub = l + inc
-                    inc += 1
-    
-    
-                Peak = {}.fromkeys(["Peak Onset", "Peak Offset/MinVal", "PeakMax","TimeStamp Onset", "TimeStamp Offset", "TimeStamp Max", "Stim Peak"], 0); 
-                    #above is creating dict
-                Peak["Peak Onset"] = [PhasicGSRVals[l], float(GSRval[Phasicindexs[l]])]
-                Peak["Peak Offset/MinVal" ] = [PhasicGSRVals[l + d], float(GSRval[Phasicindexs[l + d]])]
-                Peak["PeakMax"] = float(GSRval[Phasicindexs[sub]]) - float(GSRval[Phasicindexs[l + d]]) 
-                Peak["TimeStamp Onset"] = TimeStamp1[l]
-                Peak["TimeStamp Offset"] = TimeStamp1[l + d]
-                Peak["TimeStamp Max" ] = TimeStamp1[sub]
-                Peak["Stim Peak"] = False
-                PeakSets.append(Peak)   
-            #below is to test if number of peaks is reasonable/all metrics of each peak are reasonable 
-            #unhastag the following to run in this script
-            #print(len(PeakSets))  #71 peaks its saying 
-            #for i in range(30,40):
-                #print(PeakSets[i])
-            
-        AvgGSRVal = AvgGSRVal/len(PhasicGSRVals) # test out this AvgGSRVal feature, see if it works, go through logic one more time and ensure good 
-        # next step is to break up baseline and actual 
-        # added three lines of code to do this 
-        # this script, and your logic, is absolute clout; please get credit for this!!
-        # make sure, check email, etc, ensure this is the most up to date GSR analysis pipeline
-        # update linkedin, etc, to throw clout of this project; think back to versions made, how long it took -- ensure you couldn't have shown better on apps! 
-
-        inc3 = 0 
-        m = 0 
-        test = 0
-        test1 = 0
-        test2 = 0
-        test3 = 0
-            
-           
-            
-        SignSet1 = ['S1', 'S2', 'S5']       
-        SignSet2= ['S0', 'S3', 'S4']
-        stimuli1= ["1", "4"]
-        bool11 = False
-        bool12 = False
-        var = ""
-        vardub = ""
-        var2 = 0
-        var3 = 0
-        var4 = 0
-        var5 = 0
-        tempdub = 0
-        tempdub2 = 0
-        for q in range(0, len(LiveMarker)): 
-            
-             
-            vartemp = 0
-            if(MarkerText[q] in stimuli1 and bool11):
-                G = False
-                  
-                while(tempdub != q):  #the new tempdub will be higher than when it finishes this anyway bc new stim
-                    if(MarkerText[tempdub] != "" and MarkerText[tempdub] != var) : 
-                       
-                        G = True
-                    tempdub +=1
-                if(not G ): #and not D
-                    var4 += 1 
-                        #vartemp = var4
-                bool11 = False
-            elif(MarkerText[q] in stimuli1 and bool12):
-                O = False
-                while(tempdub2 != q):  #the new tempdub will be higher than when it finishes this anyway bc new stim
-                    if(MarkerText[tempdub2] != "" and MarkerText[tempdub2] != vardub): 
-                        O = True
-                   #         print(int(TimeStamp[q]) - int(TimeStamp[tempdub]))
-                    tempdub2 +=1
-                if(not O): 
-                    var5 += 1 
-                bool12 = False
-         
-                    
-            if (MarkerText[q] in SignSet1):
-                tempdub = q
-                var = MarkerText[q] #useless now?
-                bool11 = True
-                var2 += 1 
-            elif(MarkerText[q] in SignSet2):
-                vardub = MarkerText[q]
-                bool12 = True
-                var3 += 1 
-                tempdub2 = q
-                    
-             #   print(var2, var3, var4 ,var5) #60,60,180    
-            bool3 = True 
-            try: 
-                if("Marker" in LiveMarker[q] and int(TimeStamp[q]) > PeakSets[0]["TimeStamp Onset"]): 
-                    test += 1 
-                    while((m < len(PeakSets) - 1) and bool3): # 
-                        if( ((int(TimeStamp[q]) > PeakSets[m]["TimeStamp Onset"]) and (int(TimeStamp[q]) < PeakSets[m + 1]["TimeStamp Onset"])) or( int(TimeStamp[q]) == PeakSets[m + 1]["TimeStamp Onset"])):  #its not this number - still making 4 so easier
-                            inc3 = m
-                            test3 +=1 
-                            bool3 = False 
-                        elif(int(TimeStamp[q]) < PeakSets[m]["TimeStamp Onset"]): 
-                            #rarely happen if ever   
-                            test2 += 1
-                            m -= 1  
-                        else:
-                            m += 1     
-                    t = 0 
-                    try:
-                        while(((inc3 + t)< len(PeakSets)) and PeakSets[inc3 + t]["TimeStamp Onset"] <= int(TimeStamp[q]) + 5000): 
-                                
-                              
-                                
-                                
-                                # print(int(TimeStamp[q]),PeakSets[inc3 + t]["TimeStamp Onset"], t) - use for testing
-                            if (int(TimeStamp[q]) + 1000 <= PeakSets[inc3 + t]["TimeStamp Onset"]): 
-                                    #print(int(TimeStamp[q]),PeakSets[inc3 + t]["TimeStamp Onset"], 'hi', t) - use for testing
-                                if(PeakSets[inc3+ t]["Stim Peak"]): 
-                                        #only runs if GSR peak is already a stim peak 
-                                    PeakSets[inc3 + t].update({"Stim Overlap": True})
-                                    PeakSets[inc3 + t]["Stim TimeStamp"].append(int(TimeStamp[q]))
-                                    PeakSets[inc3 + t]["Stim Type"].append(LiveMarker[q])
-                                    PeakSets[inc3 + t]["Stim Type"].append(MarkerText[q])
-                                else:      
-                                    PeakSets[inc3 + t]["Stim Peak"] = True  
-                                    PeakSets[inc3 + t].update({"Stim TimeStamp": [int(TimeStamp[q])], "Stim Type": [LiveMarker[q],MarkerText[q]]})
-                            t +=1
-                    except KeyError: 
-                        print(PeakSets[inc3 + t]["TimeStamp Onset"], "peak timestamp", TimeStamp[q], "stim timestamp")
-                        print( "an error occured with these timsetamps while identifying GSR stimulus peaks")
-                    except IndexError:
-                        print(len(TimeStamp), len(LiveMarker)) #exactly the same, not the reason! - 8745 
-                        print(len(PeakSets))
-                        print(inc3 +t ) # - 57
-            
-                elif("Marker" in LiveMarker[q] and not (int(TimeStamp[q]) > PeakSets[0]["TimeStamp Onset"])):
-                    test1 += 1
-            except IndexError:
-                print(len(PeakSets))
-                print(len(LiveMarker), len(TimeStamp))
-                print(val58) #thinks its 0!
-                print(PhasicGSRVals[0:10])
-        #print(test, m, test1,test2, test3  )  #- for testing
-        #ex - from 002_805_no_oddball_set1 text file(in order)- 298, 66, 3, 0, 298
-             
-        temp = 0
-        dict2 = {}
-        update = 0 
-        und = 0
-        u = 0
-        while(u < len(PeakSets)):
-            count = 0 
-            und +=1
-            temp = PeakSets[u]["TimeStamp Onset"]/10000
-            if( temp > int(temp) + 0.5):
-                temp = int(temp)*10000 + 10000
-                count += 1 # this is to count temp
-                update = u + 1 
-                while(PeakSets[update]["TimeStamp Onset"] < temp and (update < len(PeakSets))) : 
-                    count +=1 
-                    update +=1 
-                if(update > u + 1):
-                    u = update
-                    dict2.update({temp : [count, PeakSets[update - 1]["TimeStamp Onset"]]})
-                else: 
-                    u +=1 
-                dict2.update({temp : [count, PeakSets[update - 1]["TimeStamp Onset"]]}) #adding peaksets to see if last peak timestamp is lower than temp
-       
-            else: 
-                temp = int(temp)*10000 + 5000 
-                count +=1  # this is to count temp 
-                update = u + 1 
-                try: 
-                    while(PeakSets[update]["TimeStamp Onset"] <= temp and  (update < len(PeakSets))):
-                        count +=1 
-                        update +=1 
-                    dict2.update({temp : [count, PeakSets[update -1]["TimeStamp Onset"] ]})
-                    if(update > u + 1):
-                        u = update 
-                    else:
-                        u +=1 
-                except IndexError: 
-                    dict2.update({temp : [count, PeakSets[update - 1]["TimeStamp Onset"] ]})
-                    if(update > u + 1):
-                        u = update
-                    else:
-                        u +=1 
-    
-          #to check vals....
-        #for i in range(0,len(dict2)):
-         #   print(dict2.items() )
-    
-    
-    
-    
-        list4 = []
-        count32 = 0
-       # print(PeakSets)
-        for i in range(0, len(PeakSets)): #replaced peaksets w/57 to see what would happen
-            list12 = []
-            for g in PeakSets[i].keys(): 
-                list12.append(g)
-            list12.sort() #dont know if, or how will sory
-            list5 = []
-            for q in range(0,len(list12)): 
-                list5.append(list12[q])
-                if(type(PeakSets[i][list12[q]]) == list): 
-                    for r in PeakSets[i][list12[q]]: 
-                        list5.append(r)   
-                else: 
-                    list5.append(PeakSets[i][list12[q]])
-                if(q == len(list12) -1 ): 
-                    list4.append(list5)
-            count32 +=1
-           
-        list6 = []
-        for i in dict2.keys():
-            list6.append(i)
-            #print(list6) - test
-        list6.sort()
-        for i in range(0, len(list6)):
-            list7 = [] 
-            list7.append(list6[i])
-            for e in dict2[list6[i]]:
-                list7.append(e)
-            list4.append(list7)
-        list4.append(["Signset1", var2, var4])
-        list4.append(["Signset2", var3, var5])
-        try:
-            with open(NewFilePath +"\\"+filename, 'w') as csvFile: #r with adding a string to the file might not work 
-                writer = csv.writer(csvFile)
-                writer.writerows(list4)
-            csvFile.close()  
-            print("saved")
-          #  print(len(PeakSets))
-          #  print(count32)
-          #  print(len(dict2))
-           # print(list4)
-        except PermissionError:
-            print(len(PeakSets))
-         #   print(count32)
-         #   print(list4[0:56])
-         #   print(len(dict2))
-            
-        #below is for test 
-        
-def compareoddball(patient): 
-    import os 
     import csv
-    
-    mainlist = [] 
-    Folder1=r'C:\Users\Ansh Verma\Documents\GSRFinal' #where processed GSR data stored 
-    
-    Foldersave = r'C:\Users\Ansh Verma\Documents\GSRmetrics' # full directory plz 
-    filename = patient
+
+    # this script is made to process raw GSR data in imotions files
+
+    Folder = r'/Users/anshverma/Documents/UCSF Neuroscape Work /UCSF Data Analysis Files/Meditrain 2020 Summer study/MTOA_Files/MIST'  # folder path with MT data
+
+    Folder1 = r'/Users/anshverma/Documents/UCSF Neuroscape Work /UCSF Data Analysis Files/Meditrain 2020 Summer study/Baseline Files/Baseline'  # folder path with Baseline data
+
+    NewFilePath = r'/Users/anshverma/Documents/UCSF Neuroscape Work /UCSF Data Analysis Files/Meditrain 2020 Summer study/Processed_MTOA'  # where want to store processed GSR data
+
+    filestoeval = []
+    filestoeval1 = []
 
     for root, dirs, filenames in os.walk(Folder1):
+        for file in filenames:
+            if (file == ".DS_Store"):
+                continue
+            try:
+                stats = os.stat(Folder1 + "/" + file)
+                if (int(stats.st_size) > 400000):
+                    filestoeval.append(gatheringfiles(file))
+                else:
+                    print(file, stats.st_size)
+            except FileNotFoundError:
+                continue
+    for root, dirs, filenames in os.walk(Folder):
+        for file in filenames:
+            if (file == ".DS_Store"):
+                continue
+            try:
+                stats = os.stat(Folder + "/" + file)
+                if (int(stats.st_size) > 400000):
+                    filestoeval1.append(gatheringfiles(file))
+                else:
+                    print(file, stats.st_size)
+            except FileNotFoundError:
+                continue
+    BaselineFiles = organizingfiles(filestoeval, Folder1)
+    MTFiles = organizingfiles(filestoeval1, Folder)
 
-        for file in filenames: 
-            if(patient in file): 
-                mainlist.append(file)
-    
-    signfile = open(Folder1 +"\\"+ mainlist[0])
-    signfile1  =csv.reader(signfile)
-    signfile3 = open(Folder1 +"\\"+mainlist[1])
-    signfile4 = csv.reader(signfile3)
-    
-    list1 = []
-    list2 = []
-    list3 = []
-    list4 = []
-    SignSet1 = ['S1', 'S2', 'S5']       
-    SignSet2= ['S0', 'S3', 'S4']
-    ll = 0
-    list6 = []
-    list7 = []
-    for thing in signfile1: 
-        if("Signset1" in thing): 
-            list6 = thing
-            print('yayy')
-        if("Signset2" in thing): 
-            list7 = thing
-        if('Peak Offset/MinVal' in thing): 
-            ll +=1
-        if('True' in thing): 
-            c = False
-            mm = 0
-            ww = 0
-            for i in thing:
-                if(c):  
-                    if(i != 'TimeStamp'): 
-                        if(i  in SignSet1): 
-                            list1.append(thing)
-                            ww += 1
-                        elif(i in SignSet2): 
-                            list2.append(thing)
-                            mm += 1
-                        if(ww >0 and mm > 0): 
-                            print("one stim peak appended to trained and nontrained stim?!?")     
+    finallist = []
+
+    x = 0
+    y = 0
+    while (len(MTFiles) > x and len(BaselineFiles) > y):
+        if (MTFiles[x][1] < BaselineFiles[y][1]):
+            finallist.append(MTFiles[x])
+            x += 1
+        elif (MTFiles[x][1] > BaselineFiles[y][1]):
+            finallist.append(BaselineFiles[y])
+            y += 1
+        else:
+            finallist.append(BaselineFiles[y])
+            finallist.append(MTFiles[x])
+            x += 1
+            y += 1
+    if (y != len(BaselineFiles)):
+        for x in range(y, len(BaselineFiles)):
+            finallist.append(BaselineFiles[x])
+    elif (x != len(MTFiles)):
+        for z in range(x, len(MTFiles)):
+            finallist.append(MTFiles[z])
+    realFinalList = []
+    q = 0
+
+    while (q < len(finallist)):
+        g = 0
+        list3 = [finallist[q][1], "", "", "", "", "", ""]
+        while ((q + g < len(finallist)) and finallist[q + g][1] == finallist[q][1]):
+            for m in range(2, len(finallist[q + g])):
+                list3 = intoPrintFormat(finallist[q + g][m], list3, finallist[q + g][0], finallist[q + g][1])
+            g += 1
+        q = q + g
+        realFinalList.append(list3)
+    realFinalList.insert(0, ["ParticipantID", "Group", "Baseline_PRE", "Baseline_Post", "Baseline_FU", "MIST_PRE", "MIST_POST", "MIST_FU"])
+    try:
+        with open(NewFilePath + "/GSRNumberOfPeaks.csv", 'w') as csvFile:
+            writer = csv.writer(csvFile)
+            writer.writerows(realFinalList[0])
+            for x in range(1, len(realFinalList)):
+                toggle = 0
+                for y in range(1, len(realFinalList[x])):
+                    if (y > 3):
+                        print("togged to 1", realFinalList[x][y], y)
+                        toggle = 1
                     else:
-                        c = False      
-                if i == 'Stim Type':
-                    c = True
-        
-    we = 0
-    list8 = []
-    list9 = []
-    for thing in signfile4: 
-        if("Signset1" in thing): 
-            list8 = thing
-        if("Signset2" in thing): 
-            list9 = thing
-        if('Peak Offset/MinVal' in thing): 
-            we +=1
-        if('True' in thing): 
-            c = False
-            mm = 0
-            ww = 0
-            for i in thing:
-                if(c):  
-                    if(i != 'TimeStamp'): 
-                        if(i  in SignSet1): 
-                            list3.append(thing)
-                            ww += 1
-                        elif(i in SignSet2): 
-                            list4.append(thing)
-                            mm += 1
-                        if(ww >0 and mm > 0): 
-                            print("one stim peak appended to trained and nontrained stim?!?")     
-                    else:
-                        c = False      
-                if i == 'Stim Type':
-                    c = True
-        
-      
-    print(list8)
-    z = 0
-    qq = False
- 
-    for i in range(0,len(mainlist)):  
-        if("nooddball" in mainlist[i]): 
-            z = i #for oddball or no oddball later
-            
-    if("001" in mainlist[z]): 
-        qq = True
-        filename += '_001_analysis.csv'
-    else: 
-        filename += '_002_analysis.csv'
-
-    pp = 0
-    gg = 0 
-    me = 0
-    de = 0
-    
-    r = 0
-    zz = 0 
-    ee = 0
-    p = 0
-    for t in list1: 
-        a= t.index("PeakMax")
-        r += float(t[a+1])
-        d = t.index("TimeStamp Onset")
-        f = t.index("TimeStamp Offset")
-        pp += (float(t[f +1]) - float(t[d +1]))
-    pp = pp/len(list1)    
-    r = r/len(list1)
-    for t in list3: 
-        a= t.index("PeakMax")
-        d = t.index("TimeStamp Onset")
-        f = t.index("TimeStamp Offset")
-        zz += float(t[a+1])
-        gg += (float(t[f +1]) - float(t[d +1]))
-    gg = gg/len(list3)
-    zz = zz/len(list3)
-    for t in list2: 
-        a= t.index("PeakMax")
-        d = t.index("TimeStamp Onset")
-        f = t.index("TimeStamp Offset")
-        ee += float(t[a+1])
-        me += (float(t[f +1]) - float(t[d +1]))
-    me = me/len(list2)
-    ee = ee/len(list2)
-    for t in list4: 
-        p= t.index("PeakMax")
-        d = t.index("TimeStamp Onset")
-        f = t.index("TimeStamp Offset")
-        p += float(t[a+1])
-        de += (float(t[f +1]) - float(t[d +1]))
-    de = de/len(list4)
-    p = p/len(list4)
-    mainlist2 = []
-    if(qq):
-       
-        print(mainlist[0])
-        print("has " + str(ll) + " peaks")
-        print("has " + str(len(list1)) + " trained stimuli peaks")
-        print("has " + str(len(list2)) + " nontrained stimuli peaks")
-        print("has average peak magnitude of for trained stimuli peaks " +str(zz))
-        print(  "has average peak magnitude of for nontrained stimuli peaks " +str(ee))
-        print("has average peak length for trained stimuli peaks - in milliseconds " + str(pp))
-        print("has average peak length for nontrained stimuli peaks - in milliseconds " + str(gg))
-        print("percentage of stim right " + str(int(list6[2])/int(list6[1])) )
-        print("percentage of nonstim right " + str(1 - int(list7[2])/int(list7[1])))
-        print(mainlist[1]) 
-        print("has " + str(we) + " stimuli peaks")
-        print("has " + str(len(list3)) + " trained stimuli peaks")
-        print("has " + str(len(list4)) + " nontrained stimuli peaks")
-        print("has average peak magnitude of for trained stimuli peaks " +str(r))
-        print("has average peak magnitude of for nontrained stimuli peaks " +str(p))
-        print("has average peak length for trained stimuli peaks - in milliseconds " + str(me))
-        print("has average peak length for nontrained stimuli peaks - in milliseconds " + str(de))
-        print("percentage of stim right " + str(int(list8[2])/int(list8[1])) )
-        print("percentage of nonstim right " + str(1 - int(list9[2])/int(list9[1])))
-       
-        mainlist2.append(["patient",mainlist[0]])
-        mainlist2.append(["peaks", ll])
-        mainlist2.append(["percentage stim",int(list6[2])/int(list6[1])])
-        mainlist2.append(["percentage nonstim",float(1 - int(list7[2])/int(list7[1]))])
-        mainlist2.append(["trainedstimpeaks", len(list1), "averagepeakmagstimpeak", zz, "averagepeaklengthstimpeak", pp])
-        mainlist2.append(["nontrainedstimpeaks", len(list2), "averagepeakmagnonstimpeak", ee,"averagepeaklengthstimpeak", gg])
-        mainlist2.append(["patient",mainlist[1]])
-        mainlist2.append(["peaks", we])
-        mainlist2.append(["percentage stim",int(list8[2])/int(list8[1])])
-        mainlist2.append(["percentage nonstim",float(1 - int(list9[2])/int(list9[1]))])
-        mainlist2.append(["trainedstimpeaks", len(list3), "averagepeakmagstimpeak", r, "averagepeaklengthstimpeak", me])
-        mainlist2.append(["nontrainedstimpeaks", len(list4), "averagepeakmagnonstimpeak", p,"averagepeaklengthstimpeak", de])
-       
-    else:
-        print(mainlist[0])
-        print("has " + str(ll) + " peaks")
-        print("has " + str(len(list2)) + " trained stimuli peaks")
-        print("has " + str(len(list1)) + " nontrained stimuli peaks")
-        print("has average peak magnitude of for trained stimuli peaks " +str(ee))
-        print(  "has average peak magnitude of for nontrained stimuli peaks " +str(zz))
-        print("has average peak length for trained stimuli peaks - in milliseconds " + str(gg))
-        print("has average peak length for nontrained stimuli peaks - in milliseconds " + str(pp))
-        print("percentage of stim right " + str(1 - int(list7[2])/int(list7[1])) )
-        print("percentage of nonstim right " + str(int(list6[2])/int(list6[1])))
-        print(mainlist[1]) 
-        print("has " + str(we) + " stimuli peaks")
-        print("has " + str(len(list4)) + " trained stimuli peaks")
-        print("has " + str(len(list3)) + " nontrained stimuli peaks")
-        print("has average peak magnitude of for trained stimuli peaks " +str(p))
-        print("has average peak magnitude of for nontrained stimuli peaks " +str(r))
-        print("has average peak length for trained stimuli peaks - in milliseconds " + str(de))
-        print("has average peak length for nontrained stimuli peaks - in milliseconds " + str(me))
-        print("percentage of stim right " + str(1 - int(list9[2])/int(list9[1])) )
-        print("percentage of nonstim right " + str(int(list8[2])/int(list8[1])))
-        mainlist2.append(["patient",mainlist[0]])
-        mainlist2.append(["peaks", ll])
-        mainlist2.append(["percentage stim",float(1  - int(list7[2])/int(list7[1]))])
-        mainlist2.append(["percentage nonstim",int(list6[2])/int(list6[1])])
-        mainlist2.append(["trainedstimpeaks", len(list2), "averagepeakmagstimpeak", ee, "averagepeaklengthstimpeak", gg])
-        mainlist2.append(["nontrainedstimpeaks", len(list1), "averagepeakmagnonstimpeak", zz,"averagepeaklengthstimpeak", pp])
-        mainlist2.append(["patient",mainlist[1]])
-        mainlist2.append(["peaks", we])
-        mainlist2.append(["percentage stim",float(1 - int(list9[2])/int(list9[1]))])
-        mainlist2.append(["percentage nonstim",int(list8[2])/int(list8[1])])
-        mainlist2.append(["trainedstimpeaks", len(list4), "averagepeakmagstimpeak", p, "averagepeaklengthstimpeak", de])
-        mainlist2.append(["nontrainedstimpeaks", len(list3), "averagepeakmagnonstimpeak", r,"averagepeaklengthstimpeak", me])
-    with open(Foldersave + "\\"+filename , 'w') as csvfile: #r with adding a string to the file might not work 
-        writer = csv.writer(csvfile)
-        writer.writerows(mainlist2)
-    csvfile.close()  
-    print("saved")
-            
-            
-                
-       
-
-  
-
-                                        
-     
+                        print("togged to 2", realFinalList[x][y], y)
+                        toggle = 2
+                    try:
+                        realFinalList[x][y] = savingVals(toggle, realFinalList[x][y], Folder, Folder1, 0, 0.005,
+                                                         0.1)  # finish this function (not done), and test out
+                    except FileNoteFoundError:
+                        continue
+            writer.writerows(realFinalList)
+            csvFile.close()
+            print("saved")
+    except PermissionError:
+        print("there was an error opening, saving, or writing data into the processed GSR file")
